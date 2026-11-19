@@ -31,11 +31,27 @@ final class AppSearchTests: XCTestCase {
         XCTAssertTrue(AppSearch.filter(apps, query: "settings").isEmpty)
     }
 
+    func testMockScannerSuppliesAppsThroughScanningSeam() {
+        let scanner = MockAppScanner(apps: [makeApp("Safari"), makeApp("Chrome")])
+
+        let result = AppSearch.filter(scanner.scan(), query: "chr")
+
+        XCTAssertEqual(result.map(\.name), ["Chrome"])
+    }
+
     private func makeApp(_ name: String) -> App {
         App(
             name: name,
             url: URL(fileURLWithPath: "/Applications/\(name).app"),
             icon: NSImage(size: NSSize(width: 128, height: 128))
         )
+    }
+}
+
+private struct MockAppScanner: AppScanner {
+    let apps: [App]
+
+    func scan() -> [App] {
+        apps
     }
 }

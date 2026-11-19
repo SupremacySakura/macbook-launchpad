@@ -11,10 +11,15 @@ struct ContentView: View {
     @State private var searchBarFrame: CGRect = .zero
     @FocusState private var searchFocused: Bool
 
+    private let scanner: any AppScanner
     private let columns = Array(
         repeating: GridItem(.fixed(152), spacing: 24, alignment: .top),
         count: 8
     )
+
+    init(scanner: any AppScanner = FileSystemAppScanner()) {
+        self.scanner = scanner
+    }
 
     private var visibleApps: [App] {
         AppSearch.filter(apps, query: query)
@@ -30,10 +35,10 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 searchBar
-                    .padding(.top, 64)
+                    .padding(.top, 24)
 
                 applicationGrid
-                    .padding(.top, 40)
+                    .padding(.top, 16)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
@@ -91,45 +96,46 @@ struct ContentView: View {
                         .frame(height: 1)
                         .id("grid-top")
 
-                    LazyVGrid(columns: columns, spacing: 28) {
+                    LazyVGrid(columns: columns, spacing: 8) {
                         ForEach(visibleApps) { app in
                             appItem(app)
                         }
                     }
-                    .padding(.horizontal, 56)
-                    .padding(.top, 23)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 16)
+                    .padding(.bottom, 16)
                     .frame(maxWidth: .infinity)
                 }
             }
             .scrollIndicators(.never)
             .defaultScrollAnchor(.top)
             .onAppear {
-                resetScrollPosition(proxy)
+                resetScrollPositionAfterLayout(proxy)
             }
             .onChange(of: apps.count) {
-                resetScrollPosition(proxy)
+                resetScrollPositionAfterLayout(proxy)
             }
             .onChange(of: query) { _, _ in
-                resetScrollPosition(proxy)
+                DispatchQueue.main.async {
+                    proxy.scrollTo("grid-top", anchor: .top)
+                }
             }
         }
     }
 
-    private func resetScrollPosition(_ proxy: ScrollViewProxy) {
+    private func resetScrollPositionAfterLayout(_ proxy: ScrollViewProxy) {
         let scroll = {
             proxy.scrollTo("grid-top", anchor: .top)
         }
         DispatchQueue.main.async(execute: scroll)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: scroll)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6, execute: scroll)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: scroll)
     }
 
     private func appItem(_ app: App) -> some View {
         Button {
             launch(app)
         } label: {
-            VStack(spacing: 10) {
+            VStack(spacing: 6) {
                 Image(nsImage: app.icon)
                     .resizable()
                     .interpolation(.high)
@@ -137,19 +143,18 @@ struct ContentView: View {
                     .frame(width: 128, height: 128)
 
                 Text(app.name)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: 144)
                     .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
             }
-            .frame(width: 152)
+            .frame(width: 152, height: 152, alignment: .top)
             .scaleEffect(launchingAppID == app.id ? 1.1 : 1.0)
             .animation(.easeOut(duration: 0.1), value: launchingAppID)
         }
         .buttonStyle(.plain)
-        .help(app.name)
         .background(
             GeometryReader { proxy in
                 Color.clear.preference(
@@ -162,7 +167,7 @@ struct ContentView: View {
 
     private func prepare() {
         if apps.isEmpty {
-            apps = FileSystemAppScanner().scan()
+            apps = scanner.scan()
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -178,7 +183,13 @@ struct ContentView: View {
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard event.keyCode == 53 else { return event }
 
-            if query.isEmpty {
+            if let textView = NSApp.keyWindow?.firstResponder as? NSTextView,
+               textView.hasMarkedText() {
+                return event
+            }
+
+            let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedQuery.isEmpty {
                 NSApp.terminate(nil)
             } else {
                 query = ""
@@ -224,10 +235,26 @@ struct ContentView: View {
             launchingAppID = app.id
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            NSWorkspace.shared.open(app.url)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                NSApp.terminate(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.easeOut(duration: 0.1)) {
+                launchingAppID = nil
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                let configuration = NSWorkspace.OpenConfiguration()
+                NSWorkspace.shared.openApplication(at: app.url, configuration: configuration) { _, error in
+                    DispatchQueue.main.async {
+                        if error == nil {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                NSApp.terminate(nil)
+                            }
+                        } else {
+                            withAnimation(.easeOut(duration: 0.1)) {
+                                launchingAppID = nil
+                            }
+                        }
+                    }
+                }
             }
         }
     }

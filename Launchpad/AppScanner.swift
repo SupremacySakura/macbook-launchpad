@@ -25,14 +25,15 @@ struct FileSystemAppScanner: AppScanner {
         var apps: [App] = []
 
         for directory in directories {
-            let contents = (try? FileManager.default.contentsOfDirectory(
+            let enumerator = FileManager.default.enumerator(
                 at: directory,
                 includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            )) ?? []
+                options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            )
 
-            for url in contents where url.pathExtension == "app" {
-                let canonicalURL = url.standardizedFileURL
+            while let url = enumerator?.nextObject() as? URL {
+                guard url.pathExtension == "app" else { continue }
+                let canonicalURL = url.resolvingSymlinksInPath().standardizedFileURL
                 guard seenURLs.insert(canonicalURL).inserted else { continue }
                 apps.append(makeApp(at: canonicalURL))
             }

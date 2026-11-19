@@ -21,7 +21,7 @@ _避免使用_：图标（只指图像部分）、格子、卡片
 _避免使用_：关键字、过滤条件
 
 **应用目录（App Directory）**:
-启动台扫描 `.app` 的文件系统位置。V1 包含 `/Applications`、`~/Applications`、`/System/Applications`。
+启动台扫描 `.app` 的文件系统位置。V1 包含 `/Applications`、`~/Applications`、`/System/Applications`，并递归扫描其子目录（如 `Utilities`）。
 _避免使用_：安装目录（不准确，应用可能不在"安装"位置）
 
 **唤起（Invoke）**:

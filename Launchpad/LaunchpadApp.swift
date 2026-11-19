@@ -41,7 +41,8 @@ final class LaunchpadAppDelegate: NSObject, NSApplicationDelegate {
 
 struct WindowConfigurator: NSViewRepresentable {
     final class Coordinator {
-        var didEnterFullScreen = false
+        var didRequestFullScreen = false
+        var fullScreenRetryCount = 0
     }
 
     func makeCoordinator() -> Coordinator {
@@ -90,10 +91,18 @@ struct WindowConfigurator: NSViewRepresentable {
             window.makeKey()
         }
 
-        guard !coordinator.didEnterFullScreen else { return }
-        coordinator.didEnterFullScreen = true
+        activateAfterDelay(0.4)
+
+        guard !coordinator.didRequestFullScreen else { return }
+        coordinator.didRequestFullScreen = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             window.toggleFullScreen(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                guard !window.styleMask.contains(.fullScreen),
+                      coordinator.fullScreenRetryCount < 1 else { return }
+                coordinator.fullScreenRetryCount += 1
+                window.toggleFullScreen(nil)
+            }
         }
 
         guard animated else { return }
@@ -102,6 +111,12 @@ struct WindowConfigurator: NSViewRepresentable {
             context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().alphaValue = 1
+        }
+    }
+
+    private func activateAfterDelay(_ delay: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            LaunchpadAppDelegate.activate()
         }
     }
 }
