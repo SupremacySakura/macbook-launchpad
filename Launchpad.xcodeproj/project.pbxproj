@@ -12,12 +12,12 @@
 		CC0000000000000000000003 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* App.swift */; };
 		CC0000000000000000000004 /* AppScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppScanner.swift */; };
 		CC0000000000000000000005 /* AppSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppSearch.swift */; };
-		CC0000000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* Assets.xcassets */; };
 		CC0000000000000000000007 /* AppSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppSearchTests.swift */; };
 		CC0000000000000000000008 /* AppScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppScannerTests.swift */; };
 		CC0000000000000000000009 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* App.swift */; };
 		CC000000000000000000000A /* AppScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppScanner.swift */; };
 		CC000000000000000000000B /* AppSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppSearch.swift */; };
+		CC000000000000000000000C /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppIcon.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +31,8 @@
 		BB0000000000000000000006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000007 /* AppSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSearchTests.swift; sourceTree = "<group>"; };
 		BB0000000000000000000008 /* AppScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppScannerTests.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Resources/AppIcon.icns; sourceTree = "<group>"; };
+		BB000000000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +80,8 @@
 				BB0000000000000000000004 /* AppScanner.swift */,
 				BB0000000000000000000005 /* AppSearch.swift */,
 				BB0000000000000000000006 /* Assets.xcassets */,
+				BB0000000000000000000009 /* AppIcon.icns */,
+				BB000000000000000000000A /* Info.plist */,
 			);
 			path = Launchpad;
 			sourceTree = "<group>";
@@ -170,7 +174,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CC0000000000000000000006 /* Assets.xcassets in Resources */,
+				CC000000000000000000000C /* AppIcon.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,11 +285,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Launchpad;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Launchpad/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -305,11 +306,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Launchpad;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Launchpad/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
