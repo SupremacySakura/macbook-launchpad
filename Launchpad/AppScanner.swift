@@ -1,6 +1,6 @@
 import AppKit
 
-protocol AppScanner {
+protocol AppScanner: Sendable {
     func scan() -> [App]
 }
 
@@ -35,7 +35,7 @@ struct FileSystemAppScanner: AppScanner {
                 guard url.pathExtension == "app" else { continue }
                 let canonicalURL = url.resolvingSymlinksInPath().standardizedFileURL
                 guard seenURLs.insert(canonicalURL).inserted else { continue }
-                apps.append(makeApp(at: canonicalURL))
+                apps.append(makeApp(sourceURL: url, canonicalURL: canonicalURL))
             }
         }
 
@@ -44,16 +44,20 @@ struct FileSystemAppScanner: AppScanner {
         }
     }
 
-    private func makeApp(at url: URL) -> App {
-        let bundle = Bundle(url: url)
+    private func makeApp(sourceURL: URL, canonicalURL: URL) -> App {
+        let bundle = Bundle(url: canonicalURL)
         let displayName = bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
         let bundleName = bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String
-        let fallbackName = url.deletingPathExtension().lastPathComponent
+        let fallbackName = canonicalURL.deletingPathExtension().lastPathComponent
         let name = displayName ?? bundleName ?? fallbackName
+        let isSymbolicLink = (try? sourceURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) ?? false
 
-        let icon = NSWorkspace.shared.icon(forFile: url.path)
-        icon.size = NSSize(width: 128, height: 128)
-
-        return App(name: name, url: url, icon: icon)
+        return App(
+            name: name,
+            sourceURL: sourceURL,
+            launchURL: canonicalURL,
+            bundleIdentifier: bundle?.bundleIdentifier,
+            isSymbolicLink: isSymbolicLink
+        )
     }
 }

@@ -40,10 +40,13 @@ final class AppSearchTests: XCTestCase {
     }
 
     private func makeApp(_ name: String) -> App {
-        App(
+        let url = URL(fileURLWithPath: "/Applications/\(name).app")
+        return App(
             name: name,
-            url: URL(fileURLWithPath: "/Applications/\(name).app"),
-            icon: NSImage(size: NSSize(width: 128, height: 128))
+            sourceURL: url,
+            launchURL: url,
+            bundleIdentifier: "test.\(name)",
+            isSymbolicLink: false
         )
     }
 }

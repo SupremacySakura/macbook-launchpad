@@ -1,5 +1,7 @@
 # V1 不显示错误 UI：启动失败和图标加载失败都静默处理
 
+Status: partially superseded by ADR 0021
+
 V1 在以下两种失败场景下**不显示任何错误提示**：
 1. 点击应用项启动失败（权限不足、应用损坏）→ 静默失败
 2. 应用图标加载失败（`NSWorkspace.icon(forFile:)` 返回 nil）→ 使用系统默认应用图标

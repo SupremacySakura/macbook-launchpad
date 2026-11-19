@@ -1,16 +1,26 @@
 import AppKit
 
-struct App: Identifiable, Hashable {
+struct App: Identifiable, Hashable, Sendable {
     let id: URL
     let name: String
-    let url: URL
-    let icon: NSImage
+    let sourceURL: URL
+    let launchURL: URL
+    let bundleIdentifier: String?
+    let isSymbolicLink: Bool
 
-    init(name: String, url: URL, icon: NSImage) {
-        self.id = url
+    init(
+        name: String,
+        sourceURL: URL,
+        launchURL: URL,
+        bundleIdentifier: String?,
+        isSymbolicLink: Bool
+    ) {
+        self.id = launchURL
         self.name = name
-        self.url = url
-        self.icon = icon
+        self.sourceURL = sourceURL.standardizedFileURL
+        self.launchURL = launchURL.standardizedFileURL
+        self.bundleIdentifier = bundleIdentifier
+        self.isSymbolicLink = isSymbolicLink
     }
 
     static func == (lhs: App, rhs: App) -> Bool {

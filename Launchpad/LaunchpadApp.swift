@@ -2,121 +2,95 @@ import AppKit
 import SwiftUI
 
 @main
-struct LaunchpadApp: SwiftUI.App {
-    @NSApplicationDelegateAdaptor(LaunchpadAppDelegate.self) private var appDelegate
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .background(WindowConfigurator())
-        }
-        .windowStyle(.hiddenTitleBar)
-        .commands {
-            CommandGroup(replacing: .newItem) {}
-        }
+struct LaunchpadApp {
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = LaunchpadAppDelegate()
+        application.delegate = delegate
+        application.setActivationPolicy(.accessory)
+        application.run()
     }
 }
 
+@MainActor
 final class LaunchpadAppDelegate: NSObject, NSApplicationDelegate {
+    private var window: LaunchpadWindow?
+
     func applicationWillFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        Self.activate()
-    }
-
-    static func activate() {
-        if #available(macOS 14.0, *) {
-            NSApp.activate()
-        } else {
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        showLaunchpad()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
-}
 
-struct WindowConfigurator: NSViewRepresentable {
-    final class Coordinator {
-        var didRequestFullScreen = false
-        var fullScreenRetryCount = 0
-    }
+    private func showLaunchpad() {
+        guard let screen = targetScreen() else { return }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
-        DispatchQueue.main.async {
-            guard let window = view.window else { return }
-            configure(window, coordinator: context.coordinator)
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            guard let window = nsView.window else { return }
-            configure(window, coordinator: context.coordinator, animated: false)
-        }
-    }
-
-    private func configure(_ window: NSWindow, coordinator: Coordinator, animated: Bool = true) {
-        guard !window.styleMask.contains(.fullScreen) else { return }
-        guard let screen = window.screen ?? NSScreen.main else { return }
-
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.standardWindowButton(.closeButton)?.isHidden = true
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
-        window.isMovable = false
-        window.isMovableByWindowBackground = false
+        let screenInsets = screen.safeAreaInsets
+        let safeAreaInsets = EdgeInsets(
+            top: screenInsets.top,
+            leading: screenInsets.left,
+            bottom: screenInsets.bottom,
+            trailing: screenInsets.right
+        )
+        let hostingView = NSHostingView(
+            rootView: ContentView(safeAreaInsets: safeAreaInsets)
+        )
+        let window = LaunchpadWindow(
+            contentRect: screen.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
         window.isReleasedWhenClosed = false
         window.isRestorable = false
-        window.level = .normal
-        window.collectionBehavior = [.fullScreenPrimary]
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
+        window.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 1)
+        window.collectionBehavior = [
+            .canJoinAllSpaces,
+            .fullScreenAuxiliary,
+            .stationary,
+            .ignoresCycle,
+        ]
         window.setFrame(screen.frame, display: true)
+        window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
-        LaunchpadAppDelegate.activate()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            LaunchpadAppDelegate.activate()
+        window.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+
+        let shouldReduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = shouldReduceMotion ? 0 : 0.12
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().alphaValue = 1
+        } completionHandler: {
             window.makeKey()
         }
 
-        activateAfterDelay(0.4)
-
-        guard !coordinator.didRequestFullScreen else { return }
-        coordinator.didRequestFullScreen = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            window.toggleFullScreen(nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                guard !window.styleMask.contains(.fullScreen),
-                      coordinator.fullScreenRetryCount < 1 else { return }
-                coordinator.fullScreenRetryCount += 1
-                window.toggleFullScreen(nil)
-            }
-        }
-
-        guard animated else { return }
-        window.alphaValue = 0
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            window.animator().alphaValue = 1
-        }
+        self.window = window
     }
 
-    private func activateAfterDelay(_ delay: TimeInterval) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            LaunchpadAppDelegate.activate()
-        }
+    private func targetScreen() -> NSScreen? {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { screen in
+            screen.frame.contains(mouseLocation)
+        } ?? NSScreen.main
+    }
+}
+
+private final class LaunchpadWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
     }
 }
