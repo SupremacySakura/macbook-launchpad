@@ -1,6 +1,6 @@
 # V1 动画：仅 fade-in 和点击放大，不做复杂过渡
 
-Status: partially superseded by ADR 0019 and ADR 0020
+Status: partially superseded by ADR 0019, ADR 0020, and ADR 0023
 
 V1 只实现两个动画：
 1. **打开时**：整个窗口从透明到不透明（fade in），0.2 秒

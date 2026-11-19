@@ -1,5 +1,10 @@
 import Foundation
 
+enum LaunchpadGridLayout {
+    case columnMajor
+    case centeredRows
+}
+
 struct LaunchpadGridMetrics: Equatable {
     static let cellWidth: CGFloat = 152
     static let cellHeight: CGFloat = 152
@@ -43,20 +48,38 @@ struct LaunchpadGridMetrics: Equatable {
         max(0, (viewportSize.height - gridSize.height) / 2)
     }
 
-    func itemFrame(at index: Int, itemCount: Int) -> CGRect {
+    func itemFrame(
+        at index: Int,
+        itemCount: Int,
+        layout: LaunchpadGridLayout = .columnMajor
+    ) -> CGRect {
         guard itemCount > 0, index >= 0, index < itemCount else { return .zero }
 
-        let column = index % columns
-        let row = index / columns
-        let rowStart = row * columns
-        let itemsInRow = min(columns, itemCount - rowStart)
-        let rowCount = (itemCount + columns - 1) / columns
-        let rowWidth = CGFloat(itemsInRow) * Self.cellWidth
-            + CGFloat(itemsInRow - 1) * Self.horizontalSpacing
-        let contentHeight = CGFloat(rowCount) * Self.cellHeight
-            + CGFloat(rowCount - 1) * Self.verticalSpacing
-        let originX = (viewportSize.width - rowWidth) / 2
-        let originY = (viewportSize.height - contentHeight) / 2
+        let column: Int
+        let row: Int
+        let originX: CGFloat
+        let originY: CGFloat
+
+        switch layout {
+        case .columnMajor:
+            column = index / rows
+            row = index % rows
+            originX = (viewportSize.width - gridSize.width) / 2
+            originY = topInset
+
+        case .centeredRows:
+            column = index % columns
+            row = index / columns
+            let rowStart = row * columns
+            let itemsInRow = min(columns, itemCount - rowStart)
+            let rowCount = (itemCount + columns - 1) / columns
+            let rowWidth = CGFloat(itemsInRow) * Self.cellWidth
+                + CGFloat(itemsInRow - 1) * Self.horizontalSpacing
+            let contentHeight = CGFloat(rowCount) * Self.cellHeight
+                + CGFloat(rowCount - 1) * Self.verticalSpacing
+            originX = (viewportSize.width - rowWidth) / 2
+            originY = (viewportSize.height - contentHeight) / 2
+        }
 
         return CGRect(
             x: originX + CGFloat(column) * (Self.cellWidth + Self.horizontalSpacing),

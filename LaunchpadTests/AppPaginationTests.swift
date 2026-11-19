@@ -35,28 +35,67 @@ final class AppPaginationTests: XCTestCase {
         )
     }
 
-    func testItemFramesFollowColumnsAndVerticalCentering() {
+    func testColumnMajorFramesFillDownThenRight() {
         let metrics = LaunchpadGridMetrics(viewportSize: CGSize(width: 1440, height: 760))
-        let first = metrics.itemFrame(at: 0, itemCount: metrics.capacity)
-        let eighth = metrics.itemFrame(at: metrics.columns, itemCount: metrics.capacity)
+        let first = metrics.itemFrame(
+            at: 0,
+            itemCount: metrics.capacity,
+            layout: .columnMajor
+        )
+        let second = metrics.itemFrame(
+            at: 1,
+            itemCount: metrics.capacity,
+            layout: .columnMajor
+        )
+        let secondColumn = metrics.itemFrame(
+            at: metrics.rows,
+            itemCount: metrics.capacity,
+            layout: .columnMajor
+        )
         let expectedOriginX = (1440 - metrics.gridSize.width) / 2
 
         XCTAssertEqual(first.minX, expectedOriginX, accuracy: 0.001)
         XCTAssertEqual(first.minY, metrics.topInset, accuracy: 0.001)
-        XCTAssertEqual(eighth.minX, expectedOriginX, accuracy: 0.001)
+        XCTAssertEqual(second.minX, expectedOriginX, accuracy: 0.001)
         XCTAssertEqual(
-            eighth.minY,
+            second.minY,
             metrics.topInset + LaunchpadGridMetrics.cellHeight + LaunchpadGridMetrics.verticalSpacing,
             accuracy: 0.001
         )
+        XCTAssertEqual(
+            secondColumn.minX,
+            expectedOriginX + LaunchpadGridMetrics.cellWidth + LaunchpadGridMetrics.horizontalSpacing,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(secondColumn.minY, metrics.topInset, accuracy: 0.001)
     }
 
-    func testSingleResultIsCentered() {
+    func testCenteredRowsLayoutCentersSingleResult() {
         let metrics = LaunchpadGridMetrics(viewportSize: CGSize(width: 1440, height: 760))
-        let frame = metrics.itemFrame(at: 0, itemCount: 1)
+        let frame = metrics.itemFrame(
+            at: 0,
+            itemCount: 1,
+            layout: .centeredRows
+        )
 
         XCTAssertEqual(frame.midX, 720, accuracy: 0.001)
         XCTAssertEqual(frame.midY, 380, accuracy: 0.001)
+    }
+
+    func testColumnMajorSparsePageStartsAtGridOrigin() {
+        let metrics = LaunchpadGridMetrics(viewportSize: CGSize(width: 1440, height: 760))
+        let frame = metrics.itemFrame(
+            at: 0,
+            itemCount: 1,
+            layout: .columnMajor
+        )
+
+        XCTAssertEqual(
+            frame.minX,
+            (1440 - metrics.gridSize.width) / 2,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(frame.minY, metrics.topInset, accuracy: 0.001)
     }
 
     private func makeApp(_ index: Int) -> App {

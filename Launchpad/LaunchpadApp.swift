@@ -68,8 +68,10 @@ final class LaunchpadAppDelegate: NSObject, NSApplicationDelegate {
 
         let shouldReduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = shouldReduceMotion ? 0 : 0.12
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.duration = shouldReduceMotion ? 0.12 : 0.22
+            context.timingFunction = shouldReduceMotion
+                ? CAMediaTimingFunction(name: .easeOut)
+                : CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
             window.animator().alphaValue = 1
         } completionHandler: {
             window.makeKey()

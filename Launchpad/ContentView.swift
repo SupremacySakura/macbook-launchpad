@@ -11,13 +11,14 @@ struct ContentView: View {
     @State private var mouseMonitor: Any?
     @State private var searchBarFrame: CGRect = .zero
     @State private var gridFrame: CGRect = .zero
-    @State private var pageIndicatorFrame: CGRect = .zero
     @State private var gridSize: CGSize = .zero
     @State private var scrollPosition: Int? = 0
     @State private var pageBeforeSearch = 0
     @State private var deletionPrompt: DeletionPrompt?
     @State private var deletingAppID: App.ID?
     @State private var contextMenu: AppContextMenu?
+    @State private var hasAppeared = false
+    @State private var isClosing = false
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var iconStore = AppIconStore()
@@ -65,21 +66,37 @@ struct ContentView: View {
         )
     }
 
+    private var itemLayout: LaunchpadGridLayout {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? .columnMajor
+            : .centeredRows
+    }
+
     private var isBusy: Bool {
-        deletionPrompt != nil || deletingAppID != nil
+        deletionPrompt != nil || deletingAppID != nil || isClosing
     }
 
     private var blocksDismissal: Bool {
         isBusy || contextMenu != nil
     }
 
+    private var foregroundScale: CGFloat {
+        if reduceMotion { return 1 }
+        return isClosing || !hasAppeared ? 0.992 : 1
+    }
+
+    private var foregroundOpacity: Double {
+        isClosing ? 0 : 1
+    }
+
+    private var backgroundOpacity: Double {
+        isClosing ? 0 : 1
+    }
+
     var body: some View {
         ZStack {
-            VisualEffectBackground()
-                .ignoresSafeArea()
-
-            Color.black.opacity(0.08)
-                .ignoresSafeArea()
+            LaunchpadBackground()
+                .opacity(backgroundOpacity)
 
             VStack(spacing: 0) {
                 searchBar
@@ -96,6 +113,8 @@ struct ContentView: View {
             .padding(.trailing, safeAreaInsets.trailing)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .allowsHitTesting(!isBusy)
+            .scaleEffect(foregroundScale)
+            .opacity(foregroundOpacity)
 
             if let contextMenu {
                 contextMenuOverlay(contextMenu)
@@ -146,8 +165,14 @@ struct ContentView: View {
         }
         .padding(.horizontal, 18)
         .frame(width: 340, height: 44)
-        .background(Capsule().fill(.white.opacity(0.14)))
-        .overlay(Capsule().stroke(.white.opacity(0.16), lineWidth: 1))
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().fill(.white.opacity(0.05)).allowsHitTesting(false))
+        .overlay(
+            Capsule()
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+                .allowsHitTesting(false)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
         .background(
             GeometryReader { proxy in
                 Color.clear.preference(
@@ -188,7 +213,6 @@ struct ContentView: View {
 
                                 applicationPage(
                                     pageApps,
-                                    pageIndex: pageIndex,
                                     metrics: pageMetrics,
                                     viewportSize: proxy.size
                                 )
@@ -229,49 +253,42 @@ struct ContentView: View {
         .onPreferenceChange(GridFrameKey.self) { frame in
             gridFrame = frame
         }
+        .highPriorityGesture(
+            DragGesture(minimumDistance: 12)
+                .onEnded(handlePagingDrag)
+        )
     }
 
     private func applicationPage(
         _ pageApps: [App],
-        pageIndex: Int,
         metrics: LaunchpadGridMetrics,
         viewportSize: CGSize
     ) -> some View {
+        let layout = itemLayout
+
         return ZStack(alignment: .topLeading) {
-            VStack(spacing: LaunchpadGridMetrics.verticalSpacing) {
-                ForEach(Array(rows(of: pageApps, columns: metrics.columns).enumerated()), id: \.offset) { _, row in
-                    HStack(spacing: LaunchpadGridMetrics.horizontalSpacing) {
-                        ForEach(row) { app in
-                            appItem(app)
-                        }
-                    }
-                }
-            }
-            .position(
-                x: viewportSize.width / 2,
-                y: viewportSize.height / 2
-            )
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay(alignment: .topLeading) {
-            if pageIndex == currentPage && visibleApps.isEmpty {
-                emptyState
+            ForEach(Array(pageApps.enumerated()), id: \.element.id) { index, app in
+                let frame = metrics.itemFrame(
+                    at: index,
+                    itemCount: pageApps.count,
+                    layout: layout
+                )
+
+                appItem(app)
+                    .position(x: frame.midX, y: frame.midY)
             }
         }
+        .frame(width: viewportSize.width, height: viewportSize.height)
     }
 
     private func appItem(_ app: App) -> some View {
-        Button {
+        let icon = iconStore.icons[app.id]
+
+        return Button {
             launch(app)
         } label: {
             VStack(spacing: 6) {
-                if let icon = iconStore.icons[app.id] {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .interpolation(.high)
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 128, height: 128)
-                } else {
+                ZStack {
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .fill(.white.opacity(0.08))
                         .frame(width: 128, height: 128)
@@ -280,7 +297,23 @@ struct ContentView: View {
                                 .font(.system(size: 34))
                                 .foregroundStyle(.white.opacity(0.24))
                         }
+                        .opacity(icon == nil ? 1 : 0)
+
+                    if let icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .interpolation(.high)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 128, height: 128)
+                            .shadow(color: .black.opacity(0.24), radius: 7, y: 5)
+                            .transition(.opacity)
+                    }
                 }
+                .frame(width: 128, height: 128)
+                .animation(
+                    reduceMotion ? nil : .easeOut(duration: 0.16),
+                    value: icon != nil
+                )
 
                 Text(app.name)
                     .font(.system(size: 13))
@@ -317,19 +350,12 @@ struct ContentView: View {
                 .accessibilityLabel("第 \(index + 1) 页")
             }
         }
+        .animation(
+            reduceMotion ? nil : .easeOut(duration: 0.18),
+            value: currentPage
+        )
         .frame(height: 24)
         .opacity(pageCount > 1 ? 1 : 0)
-        .background(
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: PageIndicatorFrameKey.self,
-                    value: proxy.frame(in: .named("launchpad-window"))
-                )
-            }
-        )
-        .onPreferenceChange(PageIndicatorFrameKey.self) { frame in
-            pageIndicatorFrame = frame
-        }
     }
 
     private func loadingPlaceholder(
@@ -381,6 +407,14 @@ struct ContentView: View {
         guard !didPrepare else { return }
         didPrepare = true
 
+        if reduceMotion {
+            hasAppeared = true
+        } else {
+            withAnimation(.timingCurve(0.23, 1, 0.32, 1, duration: 0.26)) {
+                hasAppeared = true
+            }
+        }
+
         installKeyMonitor()
         installMouseMonitor()
 
@@ -409,6 +443,14 @@ struct ContentView: View {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard event.window === NSApp.keyWindow else { return event }
 
+            if event.modifierFlags.contains(.command),
+               event.charactersIgnoringModifiers?.lowercased() == "q" {
+                dismissLaunchpad()
+                return nil
+            }
+
+            guard !isClosing else { return nil }
+
             if event.keyCode == 53, contextMenu != nil {
                 contextMenu = nil
                 return nil
@@ -428,7 +470,7 @@ struct ContentView: View {
 
             if event.keyCode == 53 {
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    NSApp.terminate(nil)
+                    dismissLaunchpad()
                 } else {
                     query = ""
                 }
@@ -480,12 +522,12 @@ struct ContentView: View {
 
             guard !blocksDismissal else { return event }
 
-            if isClickOnInteractiveElement(point) {
-                return event
+            if shouldDismiss(from: point) {
+                dismissLaunchpad()
+                return nil
             }
 
-            NSApp.terminate(nil)
-            return nil
+            return event
         }
     }
 
@@ -502,7 +544,8 @@ struct ContentView: View {
         for (index, app) in currentPageApps.enumerated() {
             let itemFrame = pageMetrics.itemFrame(
                 at: index,
-                itemCount: currentPageApps.count
+                itemCount: currentPageApps.count,
+                layout: itemLayout
             )
             .offsetBy(dx: gridFrame.minX, dy: gridFrame.minY)
 
@@ -513,29 +556,27 @@ struct ContentView: View {
         return nil
     }
 
-    private func isClickOnInteractiveElement(_ point: CGPoint) -> Bool {
-        if searchBarFrame.contains(point) || pageIndicatorFrame.contains(point) {
-            return true
-        }
-
-        let pageMetrics = metrics
-        for index in currentPageApps.indices {
-            let itemFrame = pageMetrics.itemFrame(
-                at: index,
-                itemCount: currentPageApps.count
-            )
-                .offsetBy(dx: gridFrame.minX, dy: gridFrame.minY)
-            if itemFrame.contains(point) {
-                return true
-            }
-        }
-
-        return false
+    private func shouldDismiss(from point: CGPoint) -> Bool {
+        guard gridFrame != .zero else { return false }
+        guard !searchBarFrame.contains(point) else { return false }
+        return point.y < gridFrame.minY
     }
 
-    private func rows<Element>(of elements: [Element], columns: Int) -> [[Element]] {
-        stride(from: 0, to: elements.count, by: columns).map { start in
-            Array(elements[start..<min(start + columns, elements.count)])
+    private func handlePagingDrag(_ drag: DragGesture.Value) {
+        guard !isBusy else { return }
+
+        let horizontal = drag.translation.width
+        let vertical = drag.translation.height
+        guard abs(horizontal) > abs(vertical) * 1.2 else { return }
+
+        let projected = drag.predictedEndTranslation.width
+        let decisiveDistance = abs(projected) > abs(horizontal) ? projected : horizontal
+        guard abs(decisiveDistance) >= 60 else { return }
+
+        if decisiveDistance < 0 {
+            goToPage(currentPage + 1)
+        } else {
+            goToPage(currentPage - 1)
         }
     }
 
@@ -588,7 +629,7 @@ struct ContentView: View {
         if reduceMotion {
             scrollPosition = target
         } else {
-            withAnimation(.easeOut(duration: 0.22)) {
+            withAnimation(.timingCurve(0.23, 1, 0.32, 1, duration: 0.26)) {
                 scrollPosition = target
             }
         }
@@ -621,7 +662,7 @@ struct ContentView: View {
     }
 
     private func launch(_ app: App) {
-        guard launchingAppID == nil, deletingAppID == nil else { return }
+        guard launchingAppID == nil, deletingAppID == nil, !isClosing else { return }
 
         launchingAppID = app.id
 
@@ -629,9 +670,7 @@ struct ContentView: View {
         NSWorkspace.shared.openApplication(at: app.launchURL, configuration: configuration) { _, error in
             DispatchQueue.main.async {
                 if error == nil {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        NSApp.terminate(nil)
-                    }
+                    dismissLaunchpad()
                 } else {
                     launchingAppID = nil
                 }
@@ -642,6 +681,24 @@ struct ContentView: View {
             if launchingAppID == app.id {
                 launchingAppID = nil
             }
+        }
+    }
+
+    private func dismissLaunchpad() {
+        guard !isClosing else { return }
+
+        contextMenu = nil
+        let duration: TimeInterval = reduceMotion ? 0.12 : 0.20
+        withAnimation(
+            reduceMotion
+                ? .easeOut(duration: duration)
+                : .timingCurve(0.23, 1, 0.32, 1, duration: duration)
+        ) {
+            isClosing = true
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            NSApp.terminate(nil)
         }
     }
 
@@ -833,6 +890,87 @@ private enum DeletionPrompt: Identifiable {
     }
 }
 
+private struct LaunchpadBackground: View {
+    var body: some View {
+        ZStack {
+            VisualEffectBackground()
+
+            LinearGradient(
+                stops: [
+                    .init(
+                        color: Color(red: 0.10, green: 0.17, blue: 0.25).opacity(0.72),
+                        location: 0
+                    ),
+                    .init(
+                        color: Color(red: 0.05, green: 0.09, blue: 0.15).opacity(0.82),
+                        location: 0.48
+                    ),
+                    .init(
+                        color: Color(red: 0.02, green: 0.03, blue: 0.06).opacity(0.94),
+                        location: 1
+                    ),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.15, green: 0.58, blue: 0.67).opacity(0.34),
+                    .clear,
+                ],
+                center: UnitPoint(x: 0.08, y: 0.02),
+                startRadius: 20,
+                endRadius: 860
+            )
+            .blendMode(.screen)
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.42, green: 0.24, blue: 0.72).opacity(0.24),
+                    .clear,
+                ],
+                center: UnitPoint(x: 0.92, y: 0.28),
+                startRadius: 0,
+                endRadius: 760
+            )
+            .blendMode(.screen)
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.14, green: 0.34, blue: 0.58).opacity(0.22),
+                    .clear,
+                ],
+                center: UnitPoint(x: 0.5, y: 1.04),
+                startRadius: 0,
+                endRadius: 900
+            )
+            .blendMode(.screen)
+
+            LinearGradient(
+                colors: [
+                    .white.opacity(0.05),
+                    .clear,
+                    .black.opacity(0.22),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            RadialGradient(
+                colors: [
+                    .clear,
+                    .black.opacity(0.30),
+                ],
+                center: .center,
+                startRadius: 360,
+                endRadius: 1180
+            )
+        }
+        .ignoresSafeArea()
+    }
+}
+
 struct VisualEffectBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -857,17 +995,6 @@ private struct SearchBarFrameKey: PreferenceKey {
 }
 
 private struct GridFrameKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        let next = nextValue()
-        if next != .zero {
-            value = next
-        }
-    }
-}
-
-private struct PageIndicatorFrameKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
 
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
