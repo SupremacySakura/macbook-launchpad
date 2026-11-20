@@ -110,3 +110,108 @@ enum AppPaging {
         return apps[start..<end]
     }
 }
+
+enum LaunchpadPointerRegions {
+    static let sideBandWidth: CGFloat = 56
+    static let bottomBandHeight: CGFloat = 64
+
+    static func pagingStageFrame(
+        containerSize: CGSize,
+        stageTop: CGFloat
+    ) -> CGRect {
+        let width = containerSize.width - sideBandWidth * 2
+        let height = containerSize.height - bottomBandHeight - stageTop
+        guard width > 0, height > 0 else { return .zero }
+
+        return CGRect(
+            x: sideBandWidth,
+            y: stageTop,
+            width: width,
+            height: height
+        )
+    }
+
+    static func isInPagingStage(
+        _ point: CGPoint,
+        containerSize: CGSize,
+        stageTop: CGFloat
+    ) -> Bool {
+        pagingStageFrame(
+            containerSize: containerSize,
+            stageTop: stageTop
+        ).contains(point)
+    }
+}
+
+enum LaunchpadPagingMotion {
+    static let settleDuration: TimeInterval = 0.40
+    static let horizontalDominanceRatio: CGFloat = 1.2
+    static let edgeResistance: CGFloat = 0.28
+
+    static func hasHorizontalIntent(_ translation: CGSize) -> Bool {
+        abs(translation.width) > abs(translation.height) * horizontalDominanceRatio
+    }
+
+    static func displayedOffset(
+        translation: CGSize,
+        startPage: Int,
+        pageCount: Int,
+        pageWidth: CGFloat
+    ) -> CGFloat {
+        guard pageWidth > 0, hasHorizontalIntent(translation) else { return 0 }
+        guard availableTargetPage(
+            from: startPage,
+            translationWidth: translation.width,
+            pageCount: pageCount
+        ) != nil else {
+            return translation.width * edgeResistance
+        }
+
+        let magnitude = abs(translation.width)
+        guard magnitude > pageWidth else { return translation.width }
+
+        let resistedMagnitude = pageWidth + (magnitude - pageWidth) * edgeResistance
+        return translation.width < 0 ? -resistedMagnitude : resistedMagnitude
+    }
+
+    static func targetPage(
+        startPage: Int,
+        translation: CGSize,
+        predictedEndTranslation: CGSize,
+        pageCount: Int,
+        pageWidth: CGFloat
+    ) -> Int {
+        guard pageWidth > 0, hasHorizontalIntent(translation) else { return startPage }
+        guard let target = availableTargetPage(
+            from: startPage,
+            translationWidth: translation.width,
+            pageCount: pageCount
+        ) else {
+            return startPage
+        }
+
+        let distanceThreshold = min(max(pageWidth * 0.16, 84), 180)
+        let projectedThreshold = min(max(pageWidth * 0.24, 120), 260)
+        let distancePassed = abs(translation.width) >= distanceThreshold
+        let projectedPassed = abs(predictedEndTranslation.width) >= projectedThreshold
+            && hasSameDirection(predictedEndTranslation.width, translation.width)
+
+        return distancePassed || projectedPassed ? target : startPage
+    }
+
+    private static func availableTargetPage(
+        from startPage: Int,
+        translationWidth: CGFloat,
+        pageCount: Int
+    ) -> Int? {
+        guard pageCount > 1, translationWidth != 0 else { return nil }
+
+        let direction = translationWidth < 0 ? 1 : -1
+        let target = startPage + direction
+        return (0..<pageCount).contains(target) ? target : nil
+    }
+
+    private static func hasSameDirection(_ lhs: CGFloat, _ rhs: CGFloat) -> Bool {
+        (lhs < 0 && rhs < 0) || (lhs > 0 && rhs > 0)
+    }
+}

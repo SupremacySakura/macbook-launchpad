@@ -11,9 +11,13 @@ struct ContentView: View {
     @State private var mouseMonitor: Any?
     @State private var searchBarFrame: CGRect = .zero
     @State private var gridFrame: CGRect = .zero
+    @State private var pageIndicatorFrame: CGRect = .zero
     @State private var gridSize: CGSize = .zero
     @State private var scrollPosition: Int? = 0
     @State private var pageBeforeSearch = 0
+    @State private var pagingDragOffset: CGFloat = 0
+    @State private var pagingDragStartPage = 0
+    @State private var pagingDragAxis: PagingDragAxis = .undecided
     @State private var deletionPrompt: DeletionPrompt?
     @State private var deletingAppID: App.ID?
     @State private var contextMenu: AppContextMenu?
@@ -93,10 +97,26 @@ struct ContentView: View {
         isClosing ? 0 : 1
     }
 
+    private var pageSettleAnimation: Animation {
+        .timingCurve(
+            0.22,
+            1,
+            0.36,
+            1,
+            duration: LaunchpadPagingMotion.settleDuration
+        )
+    }
+
     var body: some View {
         ZStack {
             LaunchpadBackground()
                 .opacity(backgroundOpacity)
+
+            if gridFrame != .zero {
+                pagingRegionChrome
+                    .opacity(backgroundOpacity)
+                    .allowsHitTesting(false)
+            }
 
             VStack(spacing: 0) {
                 searchBar
@@ -150,29 +170,98 @@ struct ContentView: View {
         }
     }
 
+    private var pagingRegionChrome: some View {
+        GeometryReader { proxy in
+            let stageFrame = LaunchpadPointerRegions.pagingStageFrame(
+                containerSize: proxy.size,
+                stageTop: gridFrame.minY
+            )
+            let cornerRadius: CGFloat = 42
+
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                LaunchpadPalette.stage.opacity(0.92),
+                                LaunchpadPalette.midnight.opacity(0.88),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: stageFrame.width, height: stageFrame.height)
+                    .position(x: stageFrame.midX, y: stageFrame.midY)
+                    .shadow(color: .black.opacity(0.48), radius: 34, y: 18)
+
+                DismissBandShape(
+                    stageFrame: stageFrame,
+                    cornerRadius: cornerRadius
+                )
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            LaunchpadPalette.exitBand.opacity(0.52),
+                            LaunchpadPalette.deepest.opacity(0.78),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    style: FillStyle(eoFill: true)
+                )
+
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                LaunchpadPalette.mint.opacity(0.34),
+                                LaunchpadPalette.electricBlue.opacity(0.52),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+                    .frame(width: stageFrame.width, height: stageFrame.height)
+                    .position(x: stageFrame.midX, y: stageFrame.midY)
+            }
+        }
+        .transition(.opacity)
+    }
+
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(LaunchpadPalette.frost.opacity(0.58))
 
             TextField("搜索", text: $query)
                 .textFieldStyle(.plain)
                 .font(.system(size: 17))
                 .foregroundStyle(.white)
+                .tint(LaunchpadPalette.mint)
                 .focused($searchFocused)
                 .onSubmit(launchFirstMatch)
         }
         .padding(.horizontal, 18)
         .frame(width: 340, height: 44)
         .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().fill(.white.opacity(0.05)).allowsHitTesting(false))
         .overlay(
             Capsule()
-                .stroke(.white.opacity(0.16), lineWidth: 1)
+                .fill(LaunchpadPalette.frost.opacity(0.045))
                 .allowsHitTesting(false)
         )
-        .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+        .overlay(
+            Capsule()
+                .stroke(
+                    searchFocused
+                        ? LaunchpadPalette.electricBlue.opacity(0.62)
+                        : LaunchpadPalette.frost.opacity(0.14),
+                    lineWidth: 1
+                )
+                .allowsHitTesting(false)
+        )
+        .shadow(color: .black.opacity(0.28), radius: 18, y: 8)
         .background(
             GeometryReader { proxy in
                 Color.clear.preference(
@@ -228,11 +317,18 @@ struct ContentView: View {
                             }
                         }
                         .scrollTargetLayout()
+                        .offset(x: pagingDragOffset)
                     }
                     .scrollIndicators(.never)
                     .scrollTargetBehavior(.paging)
                     .scrollPosition(id: $scrollPosition)
                     .defaultScrollAnchor(.leading)
+                    .highPriorityGesture(
+                        pagingDragGesture(
+                            pageWidth: proxy.size.width,
+                            pageCount: pageItems
+                        )
+                    )
                 }
             }
             .onAppear {
@@ -253,10 +349,6 @@ struct ContentView: View {
         .onPreferenceChange(GridFrameKey.self) { frame in
             gridFrame = frame
         }
-        .highPriorityGesture(
-            DragGesture(minimumDistance: 12)
-                .onEnded(handlePagingDrag)
-        )
     }
 
     private func applicationPage(
@@ -290,12 +382,12 @@ struct ContentView: View {
             VStack(spacing: 6) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.white.opacity(0.08))
+                        .fill(LaunchpadPalette.frost.opacity(0.065))
                         .frame(width: 128, height: 128)
                         .overlay {
                             Image(systemName: "app.fill")
                                 .font(.system(size: 34))
-                                .foregroundStyle(.white.opacity(0.24))
+                                .foregroundStyle(LaunchpadPalette.frost.opacity(0.22))
                         }
                         .opacity(icon == nil ? 1 : 0)
 
@@ -341,7 +433,11 @@ struct ContentView: View {
                     goToPage(index)
                 } label: {
                     Circle()
-                        .fill(index == currentPage ? .white : .white.opacity(0.3))
+                        .fill(
+                            index == currentPage
+                                ? LaunchpadPalette.mint
+                                : LaunchpadPalette.frost.opacity(0.24)
+                        )
                         .frame(width: 8, height: 8)
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
@@ -351,10 +447,21 @@ struct ContentView: View {
             }
         }
         .animation(
-            reduceMotion ? nil : .easeOut(duration: 0.18),
+            reduceMotion ? nil : .easeOut(duration: 0.30),
             value: currentPage
         )
         .frame(height: 24)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: PageIndicatorFrameKey.self,
+                    value: proxy.frame(in: .named("launchpad-window"))
+                )
+            }
+        )
+        .onPreferenceChange(PageIndicatorFrameKey.self) { frame in
+            pageIndicatorFrame = frame
+        }
         .opacity(pageCount > 1 ? 1 : 0)
     }
 
@@ -372,11 +479,11 @@ struct ContentView: View {
                         ForEach(row, id: \.self) { _ in
                             VStack(spacing: 10) {
                                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                    .fill(.white.opacity(0.07))
+                                    .fill(LaunchpadPalette.frost.opacity(0.055))
                                     .frame(width: 128, height: 128)
 
                                 Capsule()
-                                    .fill(.white.opacity(0.06))
+                                    .fill(LaunchpadPalette.frost.opacity(0.045))
                                     .frame(width: 82, height: 8)
                             }
                             .frame(
@@ -508,6 +615,7 @@ struct ContentView: View {
             }
 
             let point = launchpadPoint(for: event, in: contentView)
+            let containerSize = contentView.bounds.size
 
             if event.type == .rightMouseDown {
                 guard !isBusy else { return event }
@@ -522,7 +630,7 @@ struct ContentView: View {
 
             guard !blocksDismissal else { return event }
 
-            if shouldDismiss(from: point) {
+            if shouldDismiss(from: point, in: containerSize) {
                 dismissLaunchpad()
                 return nil
             }
@@ -556,27 +664,106 @@ struct ContentView: View {
         return nil
     }
 
-    private func shouldDismiss(from point: CGPoint) -> Bool {
+    private func shouldDismiss(from point: CGPoint, in containerSize: CGSize) -> Bool {
         guard gridFrame != .zero else { return false }
         guard !searchBarFrame.contains(point) else { return false }
-        return point.y < gridFrame.minY
+        if pageCount > 1, pageIndicatorFrame.contains(point) {
+            return false
+        }
+        guard app(at: point) == nil else { return false }
+
+        return !LaunchpadPointerRegions.isInPagingStage(
+            point,
+            containerSize: containerSize,
+            stageTop: gridFrame.minY
+        )
     }
 
-    private func handlePagingDrag(_ drag: DragGesture.Value) {
-        guard !isBusy else { return }
+    private func pagingDragGesture(pageWidth: CGFloat, pageCount: Int) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { drag in
+                handlePagingDragChanged(
+                    drag,
+                    pageWidth: pageWidth,
+                    pageCount: pageCount
+                )
+            }
+            .onEnded { drag in
+                handlePagingDragEnded(
+                    drag,
+                    pageWidth: pageWidth,
+                    pageCount: pageCount
+                )
+            }
+    }
 
-        let horizontal = drag.translation.width
-        let vertical = drag.translation.height
-        guard abs(horizontal) > abs(vertical) * 1.2 else { return }
+    private func handlePagingDragChanged(
+        _ drag: DragGesture.Value,
+        pageWidth: CGFloat,
+        pageCount: Int
+    ) {
+        guard !isBusy, !isClosing, pageWidth > 0 else { return }
 
-        let projected = drag.predictedEndTranslation.width
-        let decisiveDistance = abs(projected) > abs(horizontal) ? projected : horizontal
-        guard abs(decisiveDistance) >= 60 else { return }
+        if pagingDragAxis == .undecided {
+            let startX = drag.startLocation.x
+            guard startX >= LaunchpadPointerRegions.sideBandWidth,
+                  startX <= pageWidth - LaunchpadPointerRegions.sideBandWidth else {
+                pagingDragAxis = .blocked
+                return
+            }
 
-        if decisiveDistance < 0 {
-            goToPage(currentPage + 1)
+            guard LaunchpadPagingMotion.hasHorizontalIntent(drag.translation) else {
+                pagingDragAxis = .vertical
+                return
+            }
+
+            pagingDragStartPage = currentPage
+            pagingDragAxis = .horizontal
+        }
+
+        guard pagingDragAxis == .horizontal else { return }
+
+        pagingDragOffset = LaunchpadPagingMotion.displayedOffset(
+            translation: drag.translation,
+            startPage: pagingDragStartPage,
+            pageCount: pageCount,
+            pageWidth: pageWidth
+        )
+    }
+
+    private func handlePagingDragEnded(
+        _ drag: DragGesture.Value,
+        pageWidth: CGFloat,
+        pageCount: Int
+    ) {
+        let wasHorizontal = pagingDragAxis == .horizontal
+        pagingDragAxis = .undecided
+
+        guard wasHorizontal, !isBusy, !isClosing else {
+            pagingDragOffset = 0
+            return
+        }
+
+        let target = LaunchpadPagingMotion.targetPage(
+            startPage: pagingDragStartPage,
+            translation: drag.translation,
+            predictedEndTranslation: drag.predictedEndTranslation,
+            pageCount: pageCount,
+            pageWidth: pageWidth
+        )
+
+        if reduceMotion {
+            scrollPosition = target
+            pagingDragOffset = 0
+        } else if target != currentPage {
+            withAnimation(pageSettleAnimation) {
+                scrollPosition = target
+                pagingDragOffset = 0
+            }
         } else {
-            goToPage(currentPage - 1)
+            withAnimation(pageSettleAnimation) {
+                pagingDragOffset = 0
+            }
         }
     }
 
@@ -591,9 +778,11 @@ struct ContentView: View {
         let newIsEmpty = newQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         if oldWasEmpty && !newIsEmpty {
+            resetPagingDrag()
             scrollPosition = 0
         } else if !oldWasEmpty && newIsEmpty {
             DispatchQueue.main.async {
+                resetPagingDrag()
                 scrollPosition = AppPaging.clampedPage(
                     pageBeforeSearch,
                     itemCount: visibleApps.count,
@@ -601,6 +790,7 @@ struct ContentView: View {
                 )
             }
         } else if !newIsEmpty {
+            resetPagingDrag()
             scrollPosition = 0
         }
     }
@@ -612,6 +802,7 @@ struct ContentView: View {
             capacity: metrics.capacity
         )
         if scrollPosition != target {
+            resetPagingDrag()
             scrollPosition = target
         }
     }
@@ -626,13 +817,19 @@ struct ContentView: View {
         )
         guard target != currentPage else { return }
 
+        resetPagingDrag()
         if reduceMotion {
             scrollPosition = target
         } else {
-            withAnimation(.timingCurve(0.23, 1, 0.32, 1, duration: 0.26)) {
+            withAnimation(pageSettleAnimation) {
                 scrollPosition = target
             }
         }
+    }
+
+    private func resetPagingDrag() {
+        pagingDragAxis = .undecided
+        pagingDragOffset = 0
     }
 
     private func prefetchIconsAroundCurrentPage() {
@@ -743,6 +940,7 @@ struct ContentView: View {
                 itemCount: visibleApps.count,
                 capacity: metrics.capacity
             )
+            resetPagingDrag()
             scrollPosition = newPageCount == 0 ? 0 : min(pageBeforeDeletion, newPageCount - 1)
             prefetchIconsAroundCurrentPage()
         }
@@ -794,6 +992,40 @@ struct ContentView: View {
             }
         )
     }
+}
+
+private enum PagingDragAxis {
+    case undecided
+    case horizontal
+    case vertical
+    case blocked
+}
+
+private struct DismissBandShape: Shape {
+    let stageFrame: CGRect
+    let cornerRadius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addRect(rect)
+        path.addRoundedRect(
+            in: stageFrame,
+            cornerSize: CGSize(width: cornerRadius, height: cornerRadius),
+            style: .continuous
+        )
+        return path
+    }
+}
+
+private enum LaunchpadPalette {
+    static let deepest = Color(red: 0.006, green: 0.011, blue: 0.027)
+    static let ink = Color(red: 0.016, green: 0.035, blue: 0.075)
+    static let midnight = Color(red: 0.020, green: 0.071, blue: 0.137)
+    static let stage = Color(red: 0.024, green: 0.137, blue: 0.153)
+    static let exitBand = Color(red: 0.020, green: 0.071, blue: 0.235)
+    static let electricBlue = Color(red: 0.16, green: 0.44, blue: 1.00)
+    static let mint = Color(red: 0.39, green: 0.98, blue: 0.80)
+    static let frost = Color(red: 0.74, green: 0.90, blue: 1.00)
 }
 
 private struct AppContextMenu {
@@ -898,15 +1130,15 @@ private struct LaunchpadBackground: View {
             LinearGradient(
                 stops: [
                     .init(
-                        color: Color(red: 0.10, green: 0.17, blue: 0.25).opacity(0.72),
+                        color: LaunchpadPalette.midnight.opacity(0.76),
                         location: 0
                     ),
                     .init(
-                        color: Color(red: 0.05, green: 0.09, blue: 0.15).opacity(0.82),
-                        location: 0.48
+                        color: LaunchpadPalette.ink.opacity(0.89),
+                        location: 0.46
                     ),
                     .init(
-                        color: Color(red: 0.02, green: 0.03, blue: 0.06).opacity(0.94),
+                        color: LaunchpadPalette.deepest.opacity(0.96),
                         location: 1
                     ),
                 ],
@@ -916,42 +1148,31 @@ private struct LaunchpadBackground: View {
 
             RadialGradient(
                 colors: [
-                    Color(red: 0.15, green: 0.58, blue: 0.67).opacity(0.34),
+                    LaunchpadPalette.electricBlue.opacity(0.28),
                     .clear,
                 ],
-                center: UnitPoint(x: 0.08, y: 0.02),
-                startRadius: 20,
-                endRadius: 860
+                center: UnitPoint(x: 0.88, y: 0.08),
+                startRadius: 0,
+                endRadius: 920
             )
             .blendMode(.screen)
 
             RadialGradient(
                 colors: [
-                    Color(red: 0.42, green: 0.24, blue: 0.72).opacity(0.24),
+                    LaunchpadPalette.mint.opacity(0.09),
                     .clear,
                 ],
-                center: UnitPoint(x: 0.92, y: 0.28),
+                center: UnitPoint(x: 0.04, y: 0.94),
                 startRadius: 0,
-                endRadius: 760
-            )
-            .blendMode(.screen)
-
-            RadialGradient(
-                colors: [
-                    Color(red: 0.14, green: 0.34, blue: 0.58).opacity(0.22),
-                    .clear,
-                ],
-                center: UnitPoint(x: 0.5, y: 1.04),
-                startRadius: 0,
-                endRadius: 900
+                endRadius: 720
             )
             .blendMode(.screen)
 
             LinearGradient(
                 colors: [
-                    .white.opacity(0.05),
+                    .white.opacity(0.035),
                     .clear,
-                    .black.opacity(0.22),
+                    .black.opacity(0.24),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -960,11 +1181,11 @@ private struct LaunchpadBackground: View {
             RadialGradient(
                 colors: [
                     .clear,
-                    .black.opacity(0.30),
+                    .black.opacity(0.34),
                 ],
                 center: .center,
-                startRadius: 360,
-                endRadius: 1180
+                startRadius: 420,
+                endRadius: 1220
             )
         }
         .ignoresSafeArea()
@@ -995,6 +1216,17 @@ private struct SearchBarFrameKey: PreferenceKey {
 }
 
 private struct GridFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero {
+            value = next
+        }
+    }
+}
+
+private struct PageIndicatorFrameKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
 
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {

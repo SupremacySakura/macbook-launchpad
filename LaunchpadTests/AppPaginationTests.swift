@@ -98,6 +98,119 @@ final class AppPaginationTests: XCTestCase {
         XCTAssertEqual(frame.minY, metrics.topInset, accuracy: 0.001)
     }
 
+    func testPagingStageExcludesAllFourOuterBands() {
+        let containerSize = CGSize(width: 1440, height: 900)
+        let stageTop: CGFloat = 120
+        let stageFrame = LaunchpadPointerRegions.pagingStageFrame(
+            containerSize: containerSize,
+            stageTop: stageTop
+        )
+
+        XCTAssertEqual(stageFrame.minX, 56, accuracy: 0.001)
+        XCTAssertEqual(stageFrame.maxX, 1384, accuracy: 0.001)
+        XCTAssertEqual(stageFrame.minY, stageTop, accuracy: 0.001)
+        XCTAssertEqual(stageFrame.maxY, 836, accuracy: 0.001)
+
+        XCTAssertTrue(
+            LaunchpadPointerRegions.isInPagingStage(
+                CGPoint(x: 720, y: 500),
+                containerSize: containerSize,
+                stageTop: stageTop
+            )
+        )
+        XCTAssertFalse(
+            LaunchpadPointerRegions.isInPagingStage(
+                CGPoint(x: 20, y: 500),
+                containerSize: containerSize,
+                stageTop: stageTop
+            )
+        )
+        XCTAssertFalse(
+            LaunchpadPointerRegions.isInPagingStage(
+                CGPoint(x: 1420, y: 500),
+                containerSize: containerSize,
+                stageTop: stageTop
+            )
+        )
+        XCTAssertFalse(
+            LaunchpadPointerRegions.isInPagingStage(
+                CGPoint(x: 720, y: 110),
+                containerSize: containerSize,
+                stageTop: stageTop
+            )
+        )
+        XCTAssertFalse(
+            LaunchpadPointerRegions.isInPagingStage(
+                CGPoint(x: 720, y: 850),
+                containerSize: containerSize,
+                stageTop: stageTop
+            )
+        )
+    }
+
+    func testPagingOffsetFollowsPointerAndResistsAtBounds() {
+        let middle = LaunchpadPagingMotion.displayedOffset(
+            translation: CGSize(width: -140, height: 4),
+            startPage: 1,
+            pageCount: 3,
+            pageWidth: 1440
+        )
+        let firstPageEdge = LaunchpadPagingMotion.displayedOffset(
+            translation: CGSize(width: 100, height: 2),
+            startPage: 0,
+            pageCount: 3,
+            pageWidth: 1440
+        )
+
+        XCTAssertEqual(middle, -140, accuracy: 0.001)
+        XCTAssertEqual(firstPageEdge, 28, accuracy: 0.001)
+    }
+
+    func testPagingTargetUsesDistanceOrVelocity() {
+        let pageWidth: CGFloat = 1000
+
+        XCTAssertEqual(
+            LaunchpadPagingMotion.targetPage(
+                startPage: 0,
+                translation: CGSize(width: -170, height: 4),
+                predictedEndTranslation: CGSize(width: -180, height: 4),
+                pageCount: 3,
+                pageWidth: pageWidth
+            ),
+            1
+        )
+        XCTAssertEqual(
+            LaunchpadPagingMotion.targetPage(
+                startPage: 0,
+                translation: CGSize(width: -30, height: 2),
+                predictedEndTranslation: CGSize(width: -280, height: 2),
+                pageCount: 3,
+                pageWidth: pageWidth
+            ),
+            1
+        )
+        XCTAssertEqual(
+            LaunchpadPagingMotion.targetPage(
+                startPage: 0,
+                translation: CGSize(width: -30, height: 2),
+                predictedEndTranslation: CGSize(width: 20, height: 2),
+                pageCount: 3,
+                pageWidth: pageWidth
+            ),
+            0
+        )
+        XCTAssertEqual(
+            LaunchpadPagingMotion.targetPage(
+                startPage: 0,
+                translation: CGSize(width: 300, height: 2),
+                predictedEndTranslation: CGSize(width: 420, height: 2),
+                pageCount: 3,
+                pageWidth: pageWidth
+            ),
+            0
+        )
+    }
+
     private func makeApp(_ index: Int) -> App {
         let url = URL(fileURLWithPath: "/Applications/App \(index).app")
         return App(
