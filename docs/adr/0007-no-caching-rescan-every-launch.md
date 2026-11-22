@@ -1,6 +1,6 @@
 # 不做缓存：每次启动全量重新扫描应用目录
 
-Status: accepted; scanning and icon loading revised by ADR 0019
+Status: superseded by ADR 0025
 
 每次启动应用时重新扫描 `/Applications`、`~/Applications`、`/System/Applications`，不持久化任何应用列表或图标缓存。
 

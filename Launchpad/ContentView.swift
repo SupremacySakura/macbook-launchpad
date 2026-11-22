@@ -2,9 +2,9 @@ import AppKit
 import SwiftUI
 
 struct ContentView: View {
-    @State private var apps: [App] = []
+    @State private var apps: [App]
     @State private var query = ""
-    @State private var isScanning = true
+    @State private var isScanning: Bool
     @State private var didPrepare = false
     @State private var launchingAppID: App.ID?
     @State private var keyMonitor: Any?
@@ -23,20 +23,34 @@ struct ContentView: View {
     @State private var contextMenu: AppContextMenu?
     @State private var hasAppeared = false
     @State private var isClosing = false
+    @State private var isInitialScanInFlight = true
+    @State private var deletedAppIDsDuringScan: Set<App.ID> = []
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var iconStore = AppIconStore()
 
     private let scanner: any AppScanner
+    private let cache: any AppListCache
+    private let cacheQueue: DispatchQueue
     private let safeAreaInsets: EdgeInsets
     private let deletionPolicy = AppDeletionPolicy()
 
     init(
         scanner: any AppScanner = FileSystemAppScanner(),
+        cache: any AppListCache = FileAppListCache(),
         safeAreaInsets: EdgeInsets = EdgeInsets()
     ) {
         self.scanner = scanner
+        self.cache = cache
+        self.cacheQueue = DispatchQueue(
+            label: "com.supremacysakura.launchpad.app-list-cache",
+            qos: .utility
+        )
         self.safeAreaInsets = safeAreaInsets
+
+        let cachedApps = cache.load()
+        _apps = State(initialValue: cachedApps)
+        _isScanning = State(initialValue: cachedApps.isEmpty)
     }
 
     private var visibleApps: [App] {
@@ -532,9 +546,22 @@ struct ContentView: View {
             }.value
 
             guard !Task.isCancelled else { return }
-            apps = scannedApps
+
+            let reconciledApps = scannedApps.filter {
+                !deletedAppIDsDuringScan.contains($0.id)
+            }
+            let diff = AppListDiff.between(cached: apps, scanned: reconciledApps)
+            if diff.hasChanges {
+                for removedApp in diff.removed {
+                    iconStore.remove(removedApp)
+                }
+                apps = reconciledApps
+            }
+
+            isInitialScanInFlight = false
+            deletedAppIDsDuringScan.removeAll()
+            saveAppListCache()
             isScanning = false
-            scrollPosition = 0
             prefetchIconsAroundCurrentPage()
         }
 
@@ -895,6 +922,7 @@ struct ContentView: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            flushAppListCache()
             NSApp.terminate(nil)
         }
     }
@@ -934,6 +962,10 @@ struct ContentView: View {
         let pageBeforeDeletion = currentPage
         apps.removeAll { $0.id == app.id }
         iconStore.remove(app)
+        if isInitialScanInFlight {
+            deletedAppIDsDuringScan.insert(app.id)
+        }
+        saveAppListCache()
 
         DispatchQueue.main.async {
             let newPageCount = AppPaging.pageCount(
@@ -943,6 +975,22 @@ struct ContentView: View {
             resetPagingDrag()
             scrollPosition = newPageCount == 0 ? 0 : min(pageBeforeDeletion, newPageCount - 1)
             prefetchIconsAroundCurrentPage()
+        }
+    }
+
+    private func saveAppListCache() {
+        let cache = self.cache
+        let apps = self.apps
+        cacheQueue.async {
+            cache.save(apps)
+        }
+    }
+
+    private func flushAppListCache() {
+        let cache = self.cache
+        let apps = self.apps
+        cacheQueue.sync {
+            cache.save(apps)
         }
     }
 

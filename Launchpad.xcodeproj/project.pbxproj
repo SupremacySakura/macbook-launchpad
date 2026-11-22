@@ -25,6 +25,9 @@
 		CC0000000000000000000011 /* AppDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000C /* AppDeletion.swift */; };
 		CC0000000000000000000012 /* AppPaginationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000E /* AppPaginationTests.swift */; };
 		CC0000000000000000000013 /* AppDeletionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000F /* AppDeletionPolicyTests.swift */; };
+		CC0000000000000000000014 /* AppCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppCache.swift */; };
+		CC0000000000000000000015 /* AppCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppCacheTests.swift */; };
+		CC0000000000000000000016 /* AppCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppCache.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +48,8 @@
 		BB000000000000000000000D /* AppIconStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconStore.swift; sourceTree = "<group>"; };
 		BB000000000000000000000E /* AppPaginationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPaginationTests.swift; sourceTree = "<group>"; };
 		BB000000000000000000000F /* AppDeletionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDeletionPolicyTests.swift; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* AppCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCache.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* AppCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCacheTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +96,7 @@
 				BB0000000000000000000003 /* App.swift */,
 				BB0000000000000000000004 /* AppScanner.swift */,
 				BB0000000000000000000005 /* AppSearch.swift */,
+				BB0000000000000000000010 /* AppCache.swift */,
 				BB000000000000000000000B /* AppPagination.swift */,
 				BB000000000000000000000C /* AppDeletion.swift */,
 				BB000000000000000000000D /* AppIconStore.swift */,
@@ -108,6 +114,7 @@
 				BB0000000000000000000008 /* AppScannerTests.swift */,
 				BB000000000000000000000E /* AppPaginationTests.swift */,
 				BB000000000000000000000F /* AppDeletionPolicyTests.swift */,
+				BB0000000000000000000011 /* AppCacheTests.swift */,
 			);
 			path = LaunchpadTests;
 			sourceTree = "<group>";
@@ -214,6 +221,7 @@
 				CC0000000000000000000003 /* App.swift in Sources */,
 				CC0000000000000000000004 /* AppScanner.swift in Sources */,
 				CC0000000000000000000005 /* AppSearch.swift in Sources */,
+				CC0000000000000000000014 /* AppCache.swift in Sources */,
 				CC000000000000000000000D /* AppPagination.swift in Sources */,
 				CC000000000000000000000E /* AppDeletion.swift in Sources */,
 				CC000000000000000000000F /* AppIconStore.swift in Sources */,
@@ -233,6 +241,8 @@
 				CC0000000000000000000011 /* AppDeletion.swift in Sources */,
 				CC0000000000000000000012 /* AppPaginationTests.swift in Sources */,
 				CC0000000000000000000013 /* AppDeletionPolicyTests.swift in Sources */,
+				CC0000000000000000000015 /* AppCacheTests.swift in Sources */,
+				CC0000000000000000000016 /* AppCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
