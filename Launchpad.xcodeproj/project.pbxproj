@@ -28,6 +28,10 @@
 		CC0000000000000000000014 /* AppCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppCache.swift */; };
 		CC0000000000000000000015 /* AppCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppCacheTests.swift */; };
 		CC0000000000000000000016 /* AppCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppCache.swift */; };
+		CC0000000000000000000017 /* LaunchpadTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* LaunchpadTheme.swift */; };
+		CC0000000000000000000018 /* AppIconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000013 /* AppIconCache.swift */; };
+		CC0000000000000000000019 /* AppIconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000013 /* AppIconCache.swift */; };
+		CC000000000000000000001A /* AppIconCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000014 /* AppIconCacheTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +54,9 @@
 		BB000000000000000000000F /* AppDeletionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDeletionPolicyTests.swift; sourceTree = "<group>"; };
 		BB0000000000000000000010 /* AppCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCache.swift; sourceTree = "<group>"; };
 		BB0000000000000000000011 /* AppCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCacheTests.swift; sourceTree = "<group>"; };
+		BB0000000000000000000012 /* LaunchpadTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchpadTheme.swift; sourceTree = "<group>"; };
+		BB0000000000000000000013 /* AppIconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconCache.swift; sourceTree = "<group>"; };
+		BB0000000000000000000014 /* AppIconCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconCacheTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -93,12 +100,14 @@
 			children = (
 				BB0000000000000000000001 /* LaunchpadApp.swift */,
 				BB0000000000000000000002 /* ContentView.swift */,
+				BB0000000000000000000012 /* LaunchpadTheme.swift */,
 				BB0000000000000000000003 /* App.swift */,
 				BB0000000000000000000004 /* AppScanner.swift */,
 				BB0000000000000000000005 /* AppSearch.swift */,
 				BB0000000000000000000010 /* AppCache.swift */,
 				BB000000000000000000000B /* AppPagination.swift */,
 				BB000000000000000000000C /* AppDeletion.swift */,
+				BB0000000000000000000013 /* AppIconCache.swift */,
 				BB000000000000000000000D /* AppIconStore.swift */,
 				BB0000000000000000000006 /* Assets.xcassets */,
 				BB0000000000000000000009 /* AppIcon.icns */,
@@ -115,6 +124,7 @@
 				BB000000000000000000000E /* AppPaginationTests.swift */,
 				BB000000000000000000000F /* AppDeletionPolicyTests.swift */,
 				BB0000000000000000000011 /* AppCacheTests.swift */,
+				BB0000000000000000000014 /* AppIconCacheTests.swift */,
 			);
 			path = LaunchpadTests;
 			sourceTree = "<group>";
@@ -218,12 +228,14 @@
 			files = (
 				CC0000000000000000000001 /* LaunchpadApp.swift in Sources */,
 				CC0000000000000000000002 /* ContentView.swift in Sources */,
+				CC0000000000000000000017 /* LaunchpadTheme.swift in Sources */,
 				CC0000000000000000000003 /* App.swift in Sources */,
 				CC0000000000000000000004 /* AppScanner.swift in Sources */,
 				CC0000000000000000000005 /* AppSearch.swift in Sources */,
 				CC0000000000000000000014 /* AppCache.swift in Sources */,
 				CC000000000000000000000D /* AppPagination.swift in Sources */,
 				CC000000000000000000000E /* AppDeletion.swift in Sources */,
+				CC0000000000000000000018 /* AppIconCache.swift in Sources */,
 				CC000000000000000000000F /* AppIconStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -243,6 +255,8 @@
 				CC0000000000000000000013 /* AppDeletionPolicyTests.swift in Sources */,
 				CC0000000000000000000015 /* AppCacheTests.swift in Sources */,
 				CC0000000000000000000016 /* AppCache.swift in Sources */,
+				CC0000000000000000000019 /* AppIconCache.swift in Sources */,
+				CC000000000000000000001A /* AppIconCacheTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

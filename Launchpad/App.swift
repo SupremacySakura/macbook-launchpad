@@ -7,13 +7,15 @@ struct App: Identifiable, Hashable, Sendable, Codable {
     let launchURL: URL
     let bundleIdentifier: String?
     let isSymbolicLink: Bool
+    let searchAliases: [String]
 
     init(
         name: String,
         sourceURL: URL,
         launchURL: URL,
         bundleIdentifier: String?,
-        isSymbolicLink: Bool
+        isSymbolicLink: Bool,
+        searchAliases: [String] = []
     ) {
         self.id = launchURL
         self.name = name
@@ -21,6 +23,7 @@ struct App: Identifiable, Hashable, Sendable, Codable {
         self.launchURL = launchURL.standardizedFileURL
         self.bundleIdentifier = bundleIdentifier
         self.isSymbolicLink = isSymbolicLink
+        self.searchAliases = searchAliases
     }
 
     static func == (lhs: App, rhs: App) -> Bool {
@@ -38,6 +41,7 @@ struct App: Identifiable, Hashable, Sendable, Codable {
             && launchURL == other.launchURL
             && bundleIdentifier == other.bundleIdentifier
             && isSymbolicLink == other.isSymbolicLink
+            && searchAliases == other.searchAliases
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -46,6 +50,7 @@ struct App: Identifiable, Hashable, Sendable, Codable {
         case launchURL
         case bundleIdentifier
         case isSymbolicLink
+        case searchAliases
     }
 
     init(from decoder: Decoder) throws {
@@ -58,7 +63,11 @@ struct App: Identifiable, Hashable, Sendable, Codable {
                 String.self,
                 forKey: .bundleIdentifier
             ),
-            isSymbolicLink: try container.decode(Bool.self, forKey: .isSymbolicLink)
+            isSymbolicLink: try container.decode(Bool.self, forKey: .isSymbolicLink),
+            searchAliases: try container.decodeIfPresent(
+                [String].self,
+                forKey: .searchAliases
+            ) ?? []
         )
     }
 
@@ -69,5 +78,8 @@ struct App: Identifiable, Hashable, Sendable, Codable {
         try container.encode(launchURL, forKey: .launchURL)
         try container.encodeIfPresent(bundleIdentifier, forKey: .bundleIdentifier)
         try container.encode(isSymbolicLink, forKey: .isSymbolicLink)
+        if !searchAliases.isEmpty {
+            try container.encode(searchAliases, forKey: .searchAliases)
+        }
     }
 }

@@ -28,7 +28,8 @@ final class AppCacheTests: XCTestCase {
                 sourceURL: URL(fileURLWithPath: "/Applications/Alpha.app"),
                 launchURL: URL(fileURLWithPath: "/Applications/Real/Alpha.app"),
                 bundleIdentifier: "test.alpha",
-                isSymbolicLink: true
+                isSymbolicLink: true,
+                searchAliases: ["Alpha Alias", "阿尔法"]
             ),
             makeApp(
                 name: "Beta",
@@ -51,9 +52,36 @@ final class AppCacheTests: XCTestCase {
         )
         XCTAssertEqual(loadedApps[0].bundleIdentifier, "test.alpha")
         XCTAssertTrue(loadedApps[0].isSymbolicLink)
+        XCTAssertEqual(loadedApps[0].searchAliases, ["Alpha Alias", "阿尔法"])
         XCTAssertEqual(loadedApps[1].name, "Beta")
         XCTAssertEqual(loadedApps[1].bundleIdentifier, "test.beta")
         XCTAssertFalse(loadedApps[1].isSymbolicLink)
+        XCTAssertTrue(loadedApps[1].searchAliases.isEmpty)
+    }
+
+    func testCacheDecodesLegacyPayloadWithoutSearchAliases() throws {
+        let url = fixtureDirectory.appendingPathComponent("legacy-no-aliases.json")
+        let json = """
+        {
+          "version": 1,
+          "apps": [
+            {
+              "name": "Safari",
+              "sourceURL": "file:///Applications/Safari.app",
+              "launchURL": "file:///System/Cryptexes/App/System/Applications/Safari.app",
+              "bundleIdentifier": "com.apple.Safari",
+              "isSymbolicLink": true
+            }
+          ]
+        }
+        """
+        try Data(json.utf8).write(to: url)
+        let cache = FileAppListCache(url: url)
+        let loaded = cache.load()
+
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded[0].name, "Safari")
+        XCTAssertTrue(loaded[0].searchAliases.isEmpty)
     }
 
     func testCacheReturnsEmptyWhenFileIsMissing() {
@@ -167,7 +195,8 @@ final class AppCacheTests: XCTestCase {
         sourceURL: URL,
         launchURL: URL? = nil,
         bundleIdentifier: String? = nil,
-        isSymbolicLink: Bool = false
+        isSymbolicLink: Bool = false,
+        searchAliases: [String] = []
     ) -> App {
         App(
             name: name,
@@ -175,7 +204,8 @@ final class AppCacheTests: XCTestCase {
             launchURL: launchURL ?? sourceURL,
             bundleIdentifier: bundleIdentifier
                 ?? "test.\(name.lowercased().replacingOccurrences(of: " ", with: "-"))",
-            isSymbolicLink: isSymbolicLink
+            isSymbolicLink: isSymbolicLink,
+            searchAliases: searchAliases
         )
     }
 }

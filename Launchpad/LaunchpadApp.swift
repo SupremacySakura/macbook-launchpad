@@ -38,15 +38,44 @@ final class LaunchpadAppDelegate: NSObject, NSApplicationDelegate {
             bottom: screenInsets.bottom,
             trailing: screenInsets.right
         )
-        let hostingView = NSHostingView(
-            rootView: ContentView(safeAreaInsets: safeAreaInsets)
-        )
+
+        let cache = FileAppListCache()
+        let cachedApps = cache.load()
+        let iconStore = AppIconStore(backingScale: screen.backingScaleFactor)
+
+        if !cachedApps.isEmpty {
+            let estimatedGridSize = CGSize(
+                width: max(0, screen.frame.width - safeAreaInsets.leading - safeAreaInsets.trailing),
+                height: max(0, screen.frame.height - safeAreaInsets.top - safeAreaInsets.bottom - 140)
+            )
+            let estimatedCapacity = LaunchpadGridMetrics(viewportSize: estimatedGridSize).capacity
+            iconStore.prefetch(
+                Array(cachedApps.prefix(estimatedCapacity)),
+                priority: .userInitiated
+            )
+        }
+
+        let initialAppearance = LaunchpadAppearanceMode.loadSaved()
+
         let window = LaunchpadWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
+
+        let rootView = ContentView(
+            cache: cache,
+            initialApps: cachedApps,
+            iconStore: iconStore,
+            safeAreaInsets: safeAreaInsets,
+            onAppearanceChange: { [weak window] mode in
+                window?.appearance = mode.nsAppearance
+            }
+        )
+        let hostingView = NSHostingView(rootView: rootView)
+
+        window.appearance = initialAppearance.nsAppearance
         window.contentView = hostingView
         window.isReleasedWhenClosed = false
         window.isRestorable = false
@@ -68,10 +97,10 @@ final class LaunchpadAppDelegate: NSObject, NSApplicationDelegate {
 
         let shouldReduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = shouldReduceMotion ? 0.12 : 0.22
+            context.duration = shouldReduceMotion ? 0.08 : 0.18
             context.timingFunction = shouldReduceMotion
                 ? CAMediaTimingFunction(name: .easeOut)
-                : CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
+                : CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
             window.animator().alphaValue = 1
         } completionHandler: {
             window.makeKey()

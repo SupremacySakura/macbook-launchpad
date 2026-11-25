@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 
 final class AppScannerTests: XCTestCase {
@@ -74,6 +75,96 @@ final class AppScannerTests: XCTestCase {
         let scanner = FileSystemAppScanner(directories: [realDirectory, aliasDirectory])
 
         XCTAssertEqual(scanner.scan().map(\.name), ["Alpha"])
+    }
+
+    func testScanIncludesHiddenSymlinkedApp() throws {
+        let rootDir = fixtureDirectory.appendingPathComponent("Apps", isDirectory: true)
+        let cryptexDir = fixtureDirectory.appendingPathComponent("Cryptex", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: cryptexDir, withIntermediateDirectories: true)
+
+        let safariTarget = try makeFakeBundle(
+            in: cryptexDir,
+            directoryName: "Safari",
+            displayName: "Safari"
+        )
+        let hiddenSymlink = rootDir.appendingPathComponent("Safari.app")
+        try FileManager.default.createSymbolicLink(at: hiddenSymlink, withDestinationURL: safariTarget)
+        XCTAssertEqual(lchflags(hiddenSymlink.path, UInt32(UF_HIDDEN)), 0)
+
+        let scanner = FileSystemAppScanner(directories: [rootDir])
+        let apps = scanner.scan()
+
+        XCTAssertEqual(apps.map(\.name), ["Safari"])
+        XCTAssertEqual(apps.first?.isSymbolicLink, true)
+        XCTAssertEqual(
+            apps.first?.launchURL,
+            safariTarget.resolvingSymlinksInPath().standardizedFileURL
+        )
+    }
+
+    func testScanFollowsSymlinkedSubdirectoryWithoutCycles() throws {
+        let rootDir = fixtureDirectory.appendingPathComponent("Apps", isDirectory: true)
+        let externalDir = fixtureDirectory.appendingPathComponent("External", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: externalDir, withIntermediateDirectories: true)
+
+        try makeFakeBundle(in: externalDir, directoryName: "BrewApp", displayName: "BrewApp")
+        try FileManager.default.createSymbolicLink(
+            at: rootDir.appendingPathComponent("HomebrewApps"),
+            withDestinationURL: externalDir
+        )
+        // Cyclic symlink back to rootDir
+        try FileManager.default.createSymbolicLink(
+            at: externalDir.appendingPathComponent("Loop"),
+            withDestinationURL: rootDir
+        )
+
+        let scanner = FileSystemAppScanner(directories: [rootDir])
+
+        XCTAssertEqual(scanner.scan().map(\.name), ["BrewApp"])
+    }
+
+    func testScanSkipsBrokenSymlinkAndDotDirectories() throws {
+        let missingTarget = fixtureDirectory.appendingPathComponent("Missing.app")
+        try FileManager.default.createSymbolicLink(
+            at: fixtureDirectory.appendingPathComponent("Broken.app"),
+            withDestinationURL: missingTarget
+        )
+
+        let dotDir = fixtureDirectory.appendingPathComponent(".hidden-cache", isDirectory: true)
+        try FileManager.default.createDirectory(at: dotDir, withIntermediateDirectories: true)
+        try makeFakeBundle(in: dotDir, directoryName: "Secret", displayName: "Secret")
+
+        try makeFakeBundle(directoryName: "Visible", displayName: "Visible")
+
+        let scanner = FileSystemAppScanner(directories: [fixtureDirectory])
+
+        XCTAssertEqual(scanner.scan().map(\.name), ["Visible"])
+    }
+
+    func testScanPopulatesSearchAliasesAndHandlesEmptyDisplayName() throws {
+        try makeFakeBundle(
+            directoryName: "Visual Studio Code",
+            displayName: "Code"
+        )
+        try makeFakeBundle(
+            directoryName: "EmptyDisplay",
+            displayName: "   ",
+            bundleName: "FallbackBundle"
+        )
+
+        let scanner = FileSystemAppScanner(directories: [fixtureDirectory])
+        let apps = scanner.scan()
+
+        XCTAssertEqual(apps.map(\.name), ["Code", "FallbackBundle"])
+        XCTAssertTrue(apps[0].searchAliases.contains("Visual Studio Code"))
+        XCTAssertTrue(apps[1].searchAliases.contains("EmptyDisplay"))
+    }
+
+    func testDefaultDirectoriesIncludesCryptexApplications() {
+        let paths = FileSystemAppScanner.defaultDirectories.map(\.path)
+        XCTAssertTrue(paths.contains("/System/Cryptexes/App/System/Applications"))
     }
 
     @discardableResult
